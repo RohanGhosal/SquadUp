@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { socket } from '@/lib/socket';
 import LobbyRoom from '@/components/LobbyRoom';
 import { aiManager } from '@/lib/ai';
+import { useUser, UserButton, SignInButton, SignedIn, SignedOut } from '@clerk/nextjs';
 
 type Lobby = {
   _id: string;
@@ -20,12 +21,11 @@ type Lobby = {
 };
 
 export default function Home() {
+  const { user, isLoaded } = useUser();
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false); // [NEW]
-  const [username, setUsername] = useState('Commander'); // [NEW]
   const [isConnected, setIsConnected] = useState(false);
   const [activeLobby, setActiveLobby] = useState<Lobby | null>(null);
 
@@ -35,10 +35,6 @@ export default function Home() {
   const [aiMessage, setAiMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load username from local storage
-    const savedName = localStorage.getItem('squadup_username');
-    if (savedName) setUsername(savedName);
-
     // ===== INITIAL FETCH =====
     fetch('http://localhost:4000/lobbies')
       .then(res => res.json())
@@ -145,20 +141,29 @@ export default function Home() {
             )}
           </p>
         </div>
-        <div className="flex gap-4">
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-6 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-full font-semibold transition-all shadow-lg shadow-violet-500/20"
-          >
-            + Create Squad
-          </button>
-          <button
-            onClick={() => setIsLinkModalOpen(true)}
-            className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-full font-semibold transition-all border border-slate-700 flex items-center gap-2"
-          >
-            <span className="text-slate-400 text-xs uppercase tracking-wider">ID:</span>
-            {username}
-          </button>
+        <div className="flex gap-4 items-center">
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="px-6 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-full font-semibold transition-all shadow-lg shadow-violet-500/20">
+                Sign In
+              </button>
+            </SignInButton>
+          </SignedOut>
+          <SignedIn>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-6 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-full font-semibold transition-all shadow-lg shadow-violet-500/20"
+            >
+              + Create Squad
+            </button>
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: "h-10 w-10 border-2 border-violet-500"
+                }
+              }}
+            />
+          </SignedIn>
         </div>
       </header>
 
@@ -361,9 +366,10 @@ export default function Home() {
 
               const formData = new FormData(e.target as HTMLFormElement);
               const data = Object.fromEntries(formData);
+              const hostname = user?.fullName || user?.firstName || 'Unknown Commander';
 
               // [NEW] Toxicity Check
-              const textToCheck = `${data.game} ${data.map} ${data.mode} ${username}`;
+              const textToCheck = `${data.game} ${data.map} ${data.mode} ${hostname}`;
               try {
                 const sentiment = await aiManager.classifyToxicity(textToCheck);
                 // @ts-ignore
@@ -386,7 +392,7 @@ export default function Home() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   ...data,
-                  host: username,  // [UPDATED] Use dynamic username
+                  host: hostname,
                   mic: true
                 })
               }).then(() => {
@@ -435,51 +441,6 @@ export default function Home() {
                 Confirm Deploy
               </button>
 
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* [NEW] LINK ID MODAL */}
-      {isLinkModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl relative">
-            <button
-              onClick={() => setIsLinkModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
-            >
-              ✕
-            </button>
-
-            <h2 className="text-xl font-bold mb-2 text-white">
-              Identify Yourself
-            </h2>
-            <p className="text-sm text-slate-400 mb-6">
-              Enter your callsign. This will be visible to other operatives.
-            </p>
-
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.target as HTMLFormElement);
-              const newName = formData.get('username') as string;
-              if (newName) {
-                setUsername(newName);
-                localStorage.setItem('squadup_username', newName); // [UPDATED] Persist
-                setIsLinkModalOpen(false);
-              }
-            }} className="space-y-4">
-              <div>
-                <input
-                  name="username"
-                  required
-                  defaultValue={username}
-                  placeholder="Enter Codex Name"
-                  className="w-full bg-slate-800 border-none rounded-lg p-3 text-slate-100 focus:ring-2 focus:ring-violet-500"
-                />
-              </div>
-              <button type="submit" className="w-full py-2 bg-slate-100 hover:bg-white text-slate-900 rounded-lg font-bold shadow-lg transition-all">
-                Establish Link
-              </button>
             </form>
           </div>
         </div>
