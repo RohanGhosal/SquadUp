@@ -36,7 +36,7 @@ export default function Home() {
 
   useEffect(() => {
     // ===== INITIAL FETCH =====
-    fetch('http://localhost:4000/lobbies')
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/lobbies`)
       .then(res => res.json())
       .then(data => {
         console.log('API RESPONSE:', data);
@@ -266,7 +266,7 @@ export default function Home() {
             <button
               onClick={() => {
                 setIsLoading(true);
-                fetch('http://localhost:4000/lobbies')
+                fetch(`${process.env.NEXT_PUBLIC_API_URL}/lobbies`)
                   .then(res => res.json())
                   .then(data => {
                     console.log('REFRESH RESPONSE:', data);
@@ -395,7 +395,7 @@ export default function Home() {
 
               setAiMessage("Neural Core: Verified. Deploying.");
 
-              fetch('http://localhost:4000/lobbies', {
+              fetch(`${process.env.NEXT_PUBLIC_API_URL}/lobbies`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
