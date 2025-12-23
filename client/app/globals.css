@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+/* Tailwind v4 only */
+@theme {
+  --color-background: #0f172a;
+  --color-foreground: #f8fafc;
+}
+
+/* Custom utility */
+.text-glow {
+  text-shadow: 0 0 10px rgba(139, 92, 246, 0.8);
+}
+
+/* Keyframes MUST be outside @layer */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Custom utility class */
+@layer utilities {
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
