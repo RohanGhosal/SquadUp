@@ -9,6 +9,11 @@ const LobbySchema = new mongoose.Schema({
     gender: { type: String, default: 'Any' },
     mic: { type: Boolean, default: false },
     status: { type: String, enum: ['Open', 'Full', 'In-Game'], default: 'Open' },
+    members: [{
+        userId: String,
+        name: String,
+        joinedAt: { type: Date, default: Date.now }
+    }],
     discordLink: { type: String },
     createdAt: { type: Date, default: Date.now }
 });

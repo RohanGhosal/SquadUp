@@ -50,9 +50,32 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('join_lobby', (lobbyId) => {
-        socket.join(lobbyId);
-        console.log(`User ${socket.id} joined lobby ${lobbyId}`);
+    socket.on('join_lobby', async ({ lobbyId, user }) => {
+        socket.join(lobbyId); // Join socket room
+        console.log(`User ${user.name} joined lobby ${lobbyId}`);
+
+        try {
+            // Add user to Lobby in DB if not already present
+            const lobby = await Lobby.findById(lobbyId);
+            if (lobby) {
+                const isMember = lobby.members.some(m => m.userId === user.userId);
+                if (!isMember) {
+                    lobby.members.push(user);
+                    await lobby.save();
+
+                    // Notify everyone in the lobby (including sender) about the new member list
+                    io.to(lobbyId).emit('lobby_updated', lobby);
+
+                    // Notify everyone in the main menu that a lobby has changed (e.g. member count)
+                    io.emit('lobby_list_updated', lobby);
+                } else {
+                    // Even if already member, send current state to the joining user
+                    socket.emit('lobby_updated', lobby);
+                }
+            }
+        } catch (err) {
+            console.error("Error joining lobby:", err);
+        }
     });
 
     socket.on('send_message', (data) => {
@@ -62,6 +85,7 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
+        // TODO: Handle removing user from lobby on disconnect if desired (often tricky for quick reloads)
     });
 });
 

@@ -82,14 +82,22 @@ export default function Home() {
       setLobbies(prev => [newLobby, ...prev]);
     };
 
+
+
+    const onLobbyListUpdated = (updatedLobby: Lobby) => {
+      setLobbies(prev => prev.map(l => l._id === updatedLobby._id ? updatedLobby : l));
+    };
+
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('lobby_created', onLobbyCreated);
+    socket.on('lobby_list_updated', onLobbyListUpdated);
 
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('lobby_created', onLobbyCreated);
+      socket.off('lobby_list_updated', onLobbyListUpdated);
     };
   }, []);
 
