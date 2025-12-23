@@ -76,4 +76,4 @@ class AIModelManager {
     }
 }
 
-export const aiManager = AIModelManager.getInstance();
+export const getAiManager = () => AIModelManager.getInstance();
