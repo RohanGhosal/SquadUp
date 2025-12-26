@@ -5,6 +5,7 @@ import { socket } from '@/lib/socket';
 import LobbyRoom from '@/components/LobbyRoom';
 import { getAiManager } from '@/lib/ai';
 import { useUser, UserButton, SignInButton, SignedIn, SignedOut } from '@clerk/nextjs';
+import { GAMES } from '@/lib/gameData';
 
 type Lobby = {
   _id: string;
@@ -33,6 +34,10 @@ export default function HomeClient() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
+
+  // [NEW] Filter State
+  const [filterGame, setFilterGame] = useState<string>('All');
+  const [filterMode, setFilterMode] = useState<string>('Any');
 
   useEffect(() => {
     // ===== INITIAL FETCH =====
@@ -81,8 +86,6 @@ export default function HomeClient() {
       console.log('New Lobby Created:', newLobby);
       setLobbies(prev => [newLobby, ...prev]);
     };
-
-
 
     const onLobbyListUpdated = (updatedLobby: Lobby) => {
       setLobbies(prev => prev.map(l => l._id === updatedLobby._id ? updatedLobby : l));
@@ -133,6 +136,12 @@ export default function HomeClient() {
       setIsAiProcessing(false);
     }
   };
+
+  const filteredLobbies = lobbies.filter(lobby => {
+    if (filterGame !== 'All' && lobby.game !== filterGame) return false;
+    // Add more filters here if needed
+    return true;
+  });
 
   return (
     <main className="min-h-screen p-4 md:p-8 bg-slate-950 text-slate-100">
@@ -208,20 +217,18 @@ export default function HomeClient() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Target Game</label>
-                <select className="w-full bg-slate-800 border-none rounded-lg p-2 text-sm focus:ring-2 focus:ring-violet-500 text-slate-200">
-                  <option>Valorant</option>
-                  <option>Apex Legends</option>
-                  <option>League of Legends</option>
+                <select
+                  value={filterGame}
+                  onChange={(e) => setFilterGame(e.target.value)}
+                  className="w-full bg-slate-800 border-none rounded-lg p-2 text-sm focus:ring-2 focus:ring-violet-500 text-slate-200"
+                >
+                  <option value="All">All Games</option>
+                  {Object.keys(GAMES).map(game => (
+                    <option key={game} value={game}>{game}</option>
+                  ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Game Mode</label>
-                <select className="w-full bg-slate-800 border-none rounded-lg p-2 text-sm focus:ring-2 focus:ring-violet-500 text-slate-200">
-                  <option>Any </option>
-                  <option>Competitive</option>
-                  <option>Casual</option>
-                </select>
-              </div>
+
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Composition</label>
                 <select className="w-full bg-slate-800 border-none rounded-lg p-2 text-sm focus:ring-2 focus:ring-violet-500 text-slate-200">
@@ -295,7 +302,7 @@ export default function HomeClient() {
             <div className="text-center py-20 text-slate-500">Establishing Uplink...</div>
           ) : (
             <div className="space-y-4">
-              {lobbies.map(lobby => (
+              {filteredLobbies.map(lobby => (
                 <div
                   key={lobby._id}
                   className="bg-slate-900 border border-slate-800 hover:border-violet-500/50 rounded-xl p-5 transition-all hover:bg-slate-800/80 group"
@@ -341,7 +348,7 @@ export default function HomeClient() {
                 </div>
               ))}
 
-              {lobbies.length === 0 && (
+              {filteredLobbies.length === 0 && (
                 <div className="text-center py-10 text-slate-600 border border-dashed border-slate-800 rounded-xl">
                   <p className="text-lg">No Signals Detected</p>
                   <p className="text-sm">Be the first to create a squad.</p>
@@ -354,109 +361,150 @@ export default function HomeClient() {
 
       {/* CREATE MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
-            >
-              ✕
-            </button>
-
-            <h2 className="text-xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">
-              Initialize Squad
-            </h2>
-
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              setIsAiProcessing(true);
-              setAiMessage("Neural Core: Validating protocol...");
-
-              const formData = new FormData(e.target as HTMLFormElement);
-              const data = Object.fromEntries(formData);
-              const hostname = user?.fullName || user?.firstName || 'Unknown Commander';
-
-              // [NEW] Toxicity Check
-              const textToCheck = `${data.game} ${data.map} ${data.mode} ${hostname}`;
-              try {
-                const sentiment = await getAiManager().classifyToxicity(textToCheck);
-                // @ts-ignore
-                console.log("AI Verdict:", sentiment);
-                // @ts-ignore
-                if (sentiment.label === 'NEGATIVE' && sentiment.score > 0.9) {
-                  setAiMessage("⚠️ TOXICITY DETECTED ⚠️ Deployment Aborted.");
-                  setTimeout(() => setAiMessage(null), 3000);
-                  setIsAiProcessing(false);
-                  return; // STOP!
-                }
-              } catch (err) {
-                console.error("AI Check Failed, proceeding anyway", err);
-              }
-
-              setAiMessage("Neural Core: Verified. Deploying.");
-
-              fetch(`${process.env.NEXT_PUBLIC_API_URL}/lobbies`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  ...data,
-                  host: hostname,
-                  mic: true
-                })
-              }).then(() => {
-                setIsModalOpen(false);
-                setAiMessage(null);
-                setIsAiProcessing(false);
-              });
-            }} className="space-y-4">
-
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Select Game</label>
-                <select name="game" className="w-full bg-slate-800 border-none rounded-lg p-2.5 text-slate-100 focus:ring-2 focus:ring-violet-500">
-                  <option>Valorant</option>
-                  <option>Apex Legends</option>
-                  <option>League of Legends</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-slate-400 mb-1">Map / Zone</label>
-                  <input name="map" required placeholder="Ascent" className="w-full bg-slate-800 border-none rounded-lg p-2.5 text-slate-100 focus:ring-2 focus:ring-violet-500" />
-                </div>
-                <div>
-                  <label className="block text-sm text-slate-400 mb-1">Mode</label>
-                  <input name="mode" required placeholder="Ranked" className="w-full bg-slate-800 border-none rounded-lg p-2.5 text-slate-100 focus:ring-2 focus:ring-violet-500" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-slate-400 mb-1">Rank Tier</label>
-                  <input name="rank" required placeholder="Gold 2" className="w-full bg-slate-800 border-none rounded-lg p-2.5 text-slate-100 focus:ring-2 focus:ring-violet-500" />
-                </div>
-                <div>
-                  <label className="block text-sm text-slate-400 mb-1">Requirements</label>
-                  <select name="gender" className="w-full bg-slate-800 border-none rounded-lg p-2.5 text-slate-100 focus:ring-2 focus:ring-violet-500">
-                    <option>Any</option>
-                    <option>Female Only</option>
-                    <option>Non-Binary</option>
-                  </select>
-                </div>
-              </div>
-
-              <button type="submit" className="w-full py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-bold mt-4 shadow-lg shadow-violet-500/25 transition-all">
-                Confirm Deploy
-              </button>
-
-            </form>
-          </div>
-        </div>
+        <CreateSquadModal
+          onClose={() => setIsModalOpen(false)}
+          user={user}
+          onSuccess={() => {
+            setIsModalOpen(false);
+            setAiMessage("Neural Core: Verified. Deploying.");
+            // Slight delay to clear message
+            setTimeout(() => setAiMessage(null), 3000);
+          }}
+          onError={(msg) => {
+            setAiMessage(msg);
+            setTimeout(() => setAiMessage(null), 3000);
+          }}
+        />
       )}
 
       {activeLobby && (
         <LobbyRoom lobby={activeLobby} onClose={() => setActiveLobby(null)} />
       )}
     </main>
+  );
+}
+
+function CreateSquadModal({ onClose, user, onSuccess, onError }: {
+  onClose: () => void,
+  user: any,
+  onSuccess: () => void,
+  onError: (msg: string) => void
+}) {
+  const [selectedGame, setSelectedGame] = useState("Valorant");
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+        >
+          ✕
+        </button>
+
+        <h2 className="text-xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">
+          Initialize Squad
+        </h2>
+
+        <form onSubmit={async (e) => {
+          e.preventDefault();
+          setIsProcessing(true);
+
+          const formData = new FormData(e.target as HTMLFormElement);
+          const data = Object.fromEntries(formData);
+          const hostname = user?.fullName || user?.firstName || 'Unknown Commander';
+
+          // [NEW] Toxicity Check
+          const textToCheck = `${data.game} ${data.map} ${data.mode} ${hostname}`;
+          try {
+            const sentiment = await getAiManager().classifyToxicity(textToCheck);
+            // @ts-ignore
+            if (sentiment.label === 'NEGATIVE' && sentiment.score > 0.9) {
+              onError("⚠️ TOXICITY DETECTED ⚠️ Deployment Aborted.");
+              setIsProcessing(false);
+              return; // STOP!
+            }
+          } catch (err) {
+            console.error("AI Check Failed, proceeding anyway", err);
+          }
+
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/lobbies`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...data,
+              host: hostname,
+              mic: true
+            })
+          }).then(() => {
+            onSuccess();
+            setIsProcessing(false);
+          });
+        }} className="space-y-4">
+
+          <div>
+            <label className="block text-sm text-slate-400 mb-1">Select Game</label>
+            <select
+              name="game"
+              value={selectedGame}
+              onChange={(e) => setSelectedGame(e.target.value)}
+              className="w-full bg-slate-800 border-none rounded-lg p-2.5 text-slate-100 focus:ring-2 focus:ring-violet-500"
+            >
+              {Object.keys(GAMES).map(game => (
+                <option key={game} value={game}>{game}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Map / Zone</label>
+              <select name="map" className="w-full bg-slate-800 border-none rounded-lg p-2.5 text-slate-100 focus:ring-2 focus:ring-violet-500">
+                {GAMES[selectedGame].maps.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Mode</label>
+              <select name="mode" className="w-full bg-slate-800 border-none rounded-lg p-2.5 text-slate-100 focus:ring-2 focus:ring-violet-500">
+                {GAMES[selectedGame].modes.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Rank Tier</label>
+              <select name="rank" className="w-full bg-slate-800 border-none rounded-lg p-2.5 text-slate-100 focus:ring-2 focus:ring-violet-500">
+                {GAMES[selectedGame].ranks.map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Requirements</label>
+              <select name="gender" className="w-full bg-slate-800 border-none rounded-lg p-2.5 text-slate-100 focus:ring-2 focus:ring-violet-500">
+                <option>Any</option>
+                <option>Female Only</option>
+                <option>Non-Binary</option>
+              </select>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isProcessing}
+            className="w-full py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-bold mt-4 shadow-lg shadow-violet-500/25 transition-all disabled:opacity-50"
+          >
+            {isProcessing ? 'Verifying Protocol...' : 'Confirm Deploy'}
+          </button>
+
+        </form>
+      </div>
+    </div>
   );
 }

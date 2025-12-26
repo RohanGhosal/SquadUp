@@ -15,7 +15,7 @@ const LobbySchema = new mongoose.Schema({
         joinedAt: { type: Date, default: Date.now }
     }],
     discordLink: { type: String },
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now, expires: 3600 }
 });
 
 module.exports = mongoose.model('Lobby', LobbySchema);
