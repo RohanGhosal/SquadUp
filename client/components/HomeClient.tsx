@@ -220,6 +220,7 @@ export default function HomeClient() {
                 <select
                   value={filterGame}
                   onChange={(e) => setFilterGame(e.target.value)}
+                  suppressHydrationWarning
                   className="w-full bg-slate-800 border-none rounded-lg p-2 text-sm focus:ring-2 focus:ring-violet-500 text-slate-200"
                 >
                   <option value="All">All Games</option>
@@ -231,7 +232,7 @@ export default function HomeClient() {
 
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Composition</label>
-                <select className="w-full bg-slate-800 border-none rounded-lg p-2 text-sm focus:ring-2 focus:ring-violet-500 text-slate-200">
+                <select suppressHydrationWarning className="w-full bg-slate-800 border-none rounded-lg p-2 text-sm focus:ring-2 focus:ring-violet-500 text-slate-200">
                   <option>Any</option>
                   <option>Female Only</option>
                   <option>Non-Binary</option>
@@ -253,6 +254,7 @@ export default function HomeClient() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleNeuralSearch()}
                 placeholder="Ask Neural Core (e.g. 'Chill valo game')"
+                suppressHydrationWarning
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-4 pr-10 focus:ring-2 focus:ring-violet-500 focus:outline-none transition-all placeholder:text-slate-600"
               />
               <button
@@ -449,6 +451,7 @@ function CreateSquadModal({ onClose, user, onSuccess, onError }: {
               name="game"
               value={selectedGame}
               onChange={(e) => setSelectedGame(e.target.value)}
+              suppressHydrationWarning
               className="w-full bg-slate-800 border-none rounded-lg p-2.5 text-slate-100 focus:ring-2 focus:ring-violet-500"
             >
               {Object.keys(GAMES).map(game => (
