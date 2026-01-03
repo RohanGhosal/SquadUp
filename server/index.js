@@ -5,6 +5,15 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
+app.get("/", (req, res) => {
+    res.status(200).send("SquadUp backend is running 🚀");
+});
+
+// Explicit health check route
+app.get("/health", (req, res) => {
+    res.status(200).send("OK");
+});
+
 app.use(cors());
 app.use(express.json());
 
