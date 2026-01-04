@@ -41,7 +41,16 @@ export default function HomeClient() {
 
   useEffect(() => {
     // ===== INITIAL FETCH =====
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/lobbies`)
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    console.log("🔌 Client connecting to:", apiUrl);
+
+    if (!apiUrl) {
+      setError("CONFIGURATION ERROR: NEXT_PUBLIC_API_URL is missing");
+      setIsLoading(false);
+      return;
+    }
+
+    fetch(`${apiUrl}/lobbies`)
       .then(res => res.json())
       .then(data => {
         console.log('API RESPONSE:', data);
