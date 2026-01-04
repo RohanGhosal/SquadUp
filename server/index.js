@@ -101,6 +101,11 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI;
 
+// Debugging logs for deployment
+console.log(`Starting server...`);
+console.log(`PORT: ${PORT}`);
+console.log(`MONGODB_URI defined: ${!!MONGODB_URI}`);
+
 if (!MONGODB_URI) {
     console.error("❌ MONGODB_URI is not defined in environment variables");
     process.exit(1);
@@ -111,7 +116,8 @@ console.log(`Attempting to connect to MongoDB...`);
 mongoose.connect(MONGODB_URI)
     .then(() => {
         console.log('✅ Connected to MongoDB');
-        server.listen(PORT, () => {
+        // Explicitly bind to 0.0.0.0 for Docker/Railway compatibility
+        server.listen(PORT, '0.0.0.0', () => {
             console.log(`🚀 SERVER RUNNING ON PORT ${PORT}`);
         });
     })
